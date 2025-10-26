@@ -1,0 +1,24 @@
+{
+  "name": "workplay",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "framer-motion": "10.12.16",
+    "zustand": "4.4.0",
+    "react-tinder-card": "^1.4.1",
+    "canvas-confetti": "^1.6.0"
+  },
+  "devDependencies": {
+    "vite": "5.1.0",
+    "tailwindcss": "^3.4.8",
+    "postcss": "8.4.30",
+    "autoprefixer": "10.4.14"
+  }
+}
