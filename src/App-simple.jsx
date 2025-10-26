@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ErrorOverlay from "./components/ErrorOverlay";
 import { useXPStore } from "./store/xpStore";
 import { jobs } from "./data/jobs";
 import { useAuth } from "./contexts/AuthContext";
@@ -83,6 +84,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 text-white">
+      <ErrorOverlay />
       {/* Navbar */}
       <nav className="bg-slate-800/50 backdrop-blur-lg border-b border-slate-700/50 p-4">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
