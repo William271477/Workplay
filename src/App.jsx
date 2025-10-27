@@ -1,44 +1,59 @@
 import React, { useState } from "react";
-import { useXPStore } from "./store/xpStore";
-import { jobs } from "./data/jobs";
-import SwipeDeck from "./components/SwipeDeck";
-import JobCard from "./components/JobCard";
+
+const jobs = [
+  {
+    id: "j1",
+    title: "Frontend Developer",
+    company: "Takealot",
+    logo: "🛒",
+    location: "Cape Town",
+    salary: "R45k - R65k",
+    desc: "Build amazing e-commerce experiences with React. Join South Africa's leading online retailer.",
+    tags: ["React", "JavaScript", "E-commerce"],
+  },
+  {
+    id: "j2",
+    title: "UX Designer",
+    company: "Discovery",
+    logo: "💎",
+    location: "Johannesburg",
+    salary: "R40k - R55k",
+    desc: "Design user-friendly insurance and banking products that help millions of South Africans.",
+    tags: ["Figma", "UX Research", "Fintech"],
+  },
+  {
+    id: "j3",
+    title: "Data Scientist",
+    company: "Standard Bank",
+    logo: "🏦",
+    location: "Johannesburg",
+    salary: "R50k - R70k",
+    desc: "Use machine learning to detect fraud and improve customer experiences in banking.",
+    tags: ["Python", "ML", "Banking"],
+  }
+];
 
 export default function App() {
-  const [user, setUser] = useState("Demo User");
+  const [user, setUser] = useState(null);
   const [page, setPage] = useState("swipe");
-  const [currentJobIndex, setCurrentJobIndex] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  
-  const { xp, streak, saved, appliedJobs, addXP, saveJob, applyToJob, removeSaved, incrementStreak } = useXPStore();
-  
-  const level = Math.floor(xp / 100);
+  const [xp, setXp] = useState(0);
+  const [saved, setSaved] = useState([]);
+  const [applied, setApplied] = useState([]);
+  const [search, setSearch] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  const filteredJobs = searchQuery 
+  const filteredJobs = search 
     ? jobs.filter(job => 
-        job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.location.toLowerCase().includes(searchQuery.toLowerCase())
+        job.title.toLowerCase().includes(search.toLowerCase()) ||
+        job.company.toLowerCase().includes(search.toLowerCase())
       )
     : jobs;
-
-  const handleSwipe = (direction) => {
-    const currentJob = filteredJobs[currentJobIndex];
-    if (direction === "right" && currentJob) {
-      addXP(20);
-      saveJob(currentJob);
-      incrementStreak();
-    } else if (direction === "left") {
-      addXP(5);
-    }
-    setCurrentJobIndex(prev => prev + 1);
-  };
 
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-purple-600 flex items-center justify-center text-4xl">
             🎮
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">WorkPlay</h1>
@@ -59,75 +74,89 @@ export default function App() {
       <nav className="bg-slate-800 p-4">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center text-lg">
+            <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center">
               🎮
             </div>
-            <div>
-              <span className="text-lg font-bold">WorkPlay</span>
-              <div className="text-xs text-slate-400">Hi, {user}!</div>
-            </div>
+            <span className="text-lg font-bold">WorkPlay</span>
           </div>
           <div className="flex gap-2">
-            {["swipe", "saved", "profile"].map((p) => (
-              <button 
-                key={p}
-                onClick={() => setPage(p)}
-                className={`px-3 py-2 rounded-lg text-sm ${
-                  page === p ? "bg-purple-600 text-white" : "text-slate-300 hover:text-white"
-                }`}
-              >
-                {p === "swipe" ? "🏠 Home" : p === "saved" ? "💾 Saved" : "👤 Profile"}
-              </button>
-            ))}
+            <button 
+              onClick={() => setPage("swipe")}
+              className={`px-3 py-2 rounded-lg text-sm ${page === "swipe" ? "bg-purple-600" : "text-slate-300"}`}
+            >
+              🏠 Home
+            </button>
+            <button 
+              onClick={() => setPage("saved")}
+              className={`px-3 py-2 rounded-lg text-sm ${page === "saved" ? "bg-purple-600" : "text-slate-300"}`}
+            >
+              💾 Saved
+            </button>
           </div>
         </div>
       </nav>
 
-      <main className="p-4 md:p-8">
+      <main className="p-8">
         {page === "swipe" && (
           <div className="max-w-md mx-auto">
             <div className="mb-6">
               <div className="flex justify-between text-sm mb-2">
-                <span>Level {level}</span>
-                <span className="font-bold text-purple-400">{xp} XP</span>
-              </div>
-              <div className="w-full bg-slate-800 rounded-full h-3">
-                <div 
-                  className="h-full bg-purple-600 rounded-full"
-                  style={{ width: `${(xp % 100)}%` }}
-                />
+                <span>XP: {xp}</span>
+                <span>Saved: {saved.length}</span>
               </div>
             </div>
 
-            <div className="flex gap-4 mb-6 text-center">
-              <div className="bg-slate-800 rounded-lg p-3 flex-1">
-                <div className="text-xl">🔥</div>
-                <div className="text-xs text-slate-400">Streak</div>
-                <div className="font-bold text-orange-400">{streak}</div>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-3 flex-1">
-                <div className="text-xl">💾</div>
-                <div className="text-xs text-slate-400">Saved</div>
-                <div className="font-bold text-green-400">{saved.length}</div>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <input
-                type="text"
-                placeholder="Search jobs..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400"
-              />
-            </div>
+            <input
+              type="text"
+              placeholder="Search jobs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full px-4 py-3 mb-6 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400"
+            />
             
-            <h1 className="text-xl font-bold text-center mb-6">
-              {searchQuery ? `Search: "${searchQuery}"` : "Discover Jobs"}
-            </h1>
+            <h1 className="text-xl font-bold text-center mb-6">Discover Jobs</h1>
             
-            {currentJobIndex < filteredJobs.length ? (
-              <SwipeDeck jobs={filteredJobs.slice(currentJobIndex)} onSwipe={handleSwipe} />
+            {currentIndex < filteredJobs.length ? (
+              <div className="bg-white rounded-2xl p-6 shadow-xl text-black">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-xl bg-purple-600 flex items-center justify-center text-xl text-white">
+                    {filteredJobs[currentIndex].logo}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold">{filteredJobs[currentIndex].title}</h3>
+                    <p className="text-gray-600">{filteredJobs[currentIndex].company}</p>
+                    <p className="text-gray-500 text-sm">📍 {filteredJobs[currentIndex].location}</p>
+                  </div>
+                </div>
+                
+                <div className="mt-4 inline-block px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-semibold">
+                  {filteredJobs[currentIndex].salary}
+                </div>
+                
+                <p className="mt-4 text-gray-700">{filteredJobs[currentIndex].desc}</p>
+                
+                <div className="flex gap-4 mt-6">
+                  <button 
+                    onClick={() => {
+                      setCurrentIndex(prev => prev + 1);
+                      setXp(prev => prev + 5);
+                    }}
+                    className="flex-1 py-3 bg-red-500 text-white rounded-lg font-medium"
+                  >
+                    Skip
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setSaved(prev => [...prev, filteredJobs[currentIndex]]);
+                      setCurrentIndex(prev => prev + 1);
+                      setXp(prev => prev + 20);
+                    }}
+                    className="flex-1 py-3 bg-green-500 text-white rounded-lg font-medium"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="text-center py-16">
                 <div className="text-4xl mb-4">🎉</div>
@@ -140,8 +169,7 @@ export default function App() {
         
         {page === "saved" && (
           <div className="max-w-2xl mx-auto">
-            <h1 className="text-2xl font-bold mb-2">Saved Jobs</h1>
-            <p className="text-slate-400 mb-6">{saved.length} jobs saved</p>
+            <h1 className="text-2xl font-bold mb-6">Saved Jobs ({saved.length})</h1>
             {saved.length === 0 ? (
               <div className="text-center py-16">
                 <div className="text-4xl mb-4">💼</div>
@@ -164,20 +192,20 @@ export default function App() {
                         <div className="flex gap-2 mt-3">
                           <button 
                             onClick={() => {
-                              applyToJob(job.id);
-                              addXP(30);
+                              setApplied(prev => [...prev, job.id]);
+                              setXp(prev => prev + 30);
                             }}
-                            disabled={appliedJobs.includes(job.id)}
+                            disabled={applied.includes(job.id)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                              appliedJobs.includes(job.id)
+                              applied.includes(job.id)
                                 ? "bg-green-600 text-white cursor-not-allowed"
                                 : "bg-blue-600 hover:bg-blue-700 text-white"
                             }`}
                           >
-                            {appliedJobs.includes(job.id) ? "✓ Applied" : "Apply Now"}
+                            {applied.includes(job.id) ? "✓ Applied" : "Apply Now"}
                           </button>
                           <button 
-                            onClick={() => removeSaved(job.id)}
+                            onClick={() => setSaved(prev => prev.filter(j => j.id !== job.id))}
                             className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
                           >
                             Remove
@@ -189,39 +217,6 @@ export default function App() {
                 ))}
               </div>
             )}
-          </div>
-        )}
-        
-        {page === "profile" && (
-          <div className="max-w-md mx-auto text-center">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-purple-600 flex items-center justify-center text-3xl">
-              👤
-            </div>
-            <h1 className="text-2xl font-bold mb-2">{user}</h1>
-            <p className="text-slate-400 mb-8">Level {level} • {xp} XP</p>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-800 rounded-lg p-4">
-                <div className="text-2xl mb-2">🏆</div>
-                <div className="text-xl font-bold text-yellow-400">{level}</div>
-                <div className="text-xs text-slate-400">Level</div>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-4">
-                <div className="text-2xl mb-2">🔥</div>
-                <div className="text-xl font-bold text-orange-400">{streak}</div>
-                <div className="text-xs text-slate-400">Streak</div>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-4">
-                <div className="text-2xl mb-2">💾</div>
-                <div className="text-xl font-bold text-green-400">{saved.length}</div>
-                <div className="text-xs text-slate-400">Saved</div>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-4">
-                <div className="text-2xl mb-2">📄</div>
-                <div className="text-xl font-bold text-blue-400">{appliedJobs.length}</div>
-                <div className="text-xs text-slate-400">Applied</div>
-              </div>
-            </div>
           </div>
         )}
       </main>
