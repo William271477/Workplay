@@ -1,33 +1,32 @@
-// Job API service with Adzuna integration
+// Job API service with environment variables
 const API_KEYS = {
-  adzuna_id: "bdc52330",
-  adzuna_key: "9e9cb0fe92cb21b839f79bd2fccbcba5"
+  adzuna_id: import.meta.env.VITE_ADZUNA_APP_ID,
+  adzuna_key: import.meta.env.VITE_ADZUNA_APP_KEY
 };
 
 export const fetchJobs = async (query = "developer", location = "South Africa") => {
   try {
     // Use Adzuna API for South African jobs
-    const locationParam = location.toLowerCase().includes('south africa') ? 'south%20africa' : encodeURIComponent(location);
-    const response = await fetch(`https://api.adzuna.com/v1/api/jobs/za/search/1?app_id=${API_KEYS.adzuna_id}&app_key=${API_KEYS.adzuna_key}&results_per_page=20&what=${encodeURIComponent(query)}&where=${locationParam}&sort_by=date`);
-    
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+    if (API_KEYS.adzuna_id && API_KEYS.adzuna_key) {
+      const locationParam = location.toLowerCase().includes('south africa') ? 'south%20africa' : encodeURIComponent(location);
+      const response = await fetch(`https://api.adzuna.com/v1/api/jobs/za/search/1?app_id=${API_KEYS.adzuna_id}&app_key=${API_KEYS.adzuna_key}&results_per_page=20&what=${encodeURIComponent(query)}&where=${locationParam}&sort_by=date`);
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return transformAdzunaData(data.results || []);
     }
-    
+
+    // Fallback to The Muse API if no Adzuna keys
+    const response = await fetch(`https://www.themuse.com/api/public/jobs?location=South%20Africa&page=1&category=Engineering`);
     const data = await response.json();
-    return transformAdzunaData(data.results || []);
+    return transformMuseData(data.results || []);
 
   } catch (error) {
-    console.error('Adzuna API failed:', error);
-    // Fallback to The Muse API
-    try {
-      const response = await fetch(`https://www.themuse.com/api/public/jobs?location=South%20Africa&page=1&category=Engineering`);
-      const data = await response.json();
-      return transformMuseData(data.results || []);
-    } catch (museError) {
-      console.error('Muse API failed:', museError);
-      return getFallbackJobs();
-    }
+    console.error('API fetch failed:', error);
+    return getFallbackJobs();
   }
 };
 
