@@ -1,27 +1,59 @@
 import React, { useState, useEffect } from "react";
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './firebase';
 import { fetchJobs } from "./services/jobApi";
+import { useFirestore } from "./hooks/useFirestore";
+import { requestNotificationPermission, onMessageListener } from "./services/notifications";
+import LandingPage from "./components/LandingPage";
+import Auth from "./components/Auth";
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
   const [page, setPage] = useState("swipe");
-  const [xp, setXp] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [saved, setSaved] = useState([]);
-  const [applied, setApplied] = useState([]);
   const [search, setSearch] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [jobsLoading, setJobsLoading] = useState(false);
 
-  const level = Math.floor(xp / 100);
+  // Firestore integration
+  const { userData, loading: firestoreLoading, saveJob, removeJob, applyToJobAction, addXP, swipeJob } = useFirestore(user);
 
-  // Load jobs on mount and when search changes
+  // Firebase auth listener
   useEffect(() => {
-    loadJobs();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setAuthLoading(false);
+      
+      // Request notification permission when user logs in
+      if (user) {
+        requestNotificationPermission(user.uid);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
+  // Listen for push notifications
+  useEffect(() => {
+    const unsubscribe = onMessageListener();
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  // Load jobs when user is authenticated
+  useEffect(() => {
+    if (user && !firestoreLoading) {
+      loadJobs();
+    }
+  }, [user, firestoreLoading]);
+
   const loadJobs = async (query = "developer", location = "South Africa") => {
-    setLoading(true);
+    setJobsLoading(true);
     try {
       const jobData = await fetchJobs(query, location);
       setJobs(jobData);
@@ -29,7 +61,7 @@ export default function App() {
     } catch (error) {
       console.error('Failed to load jobs:', error);
     } finally {
-      setLoading(false);
+      setJobsLoading(false);
     }
   };
 
@@ -40,74 +72,44 @@ export default function App() {
     }
   };
 
-  const filteredJobs = jobs;
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
-  if (!user) {
+  const handleSwipe = async (direction) => {
+    const currentJob = jobs[currentIndex];
+    if (currentJob) {
+      await swipeJob(currentJob, direction);
+    }
+    setCurrentIndex(prev => prev + 1);
+  };
+
+  if (authLoading || (user && firestoreLoading)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl shadow-2xl">
-              🎮
-            </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              WorkPlay
-            </h1>
-            <p className="text-slate-400 mt-2">Gamify your job search journey</p>
-          </div>
-
-          <div className="bg-slate-800/50 backdrop-blur-lg rounded-3xl p-8 border border-slate-700/50">
-            <h2 className="text-2xl font-bold text-white mb-6 text-center">Welcome Back</h2>
-            
-            <div className="space-y-4">
-              <input
-                type="email"
-                placeholder="Email"
-                className="w-full p-4 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:outline-none"
-              />
-              
-              <input
-                type="password"
-                placeholder="Password"
-                className="w-full p-4 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:outline-none"
-              />
-              
-              <button
-                onClick={() => setUser("Demo User")}
-                className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg"
-              >
-                Continue Playing
-              </button>
-            </div>
-
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setUser("Demo User")}
-                className="text-slate-400 hover:text-white text-sm underline"
-              >
-                Continue as Demo User
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-            <div className="text-slate-400">
-              <div className="text-2xl mb-1">🎯</div>
-              <div className="text-xs">Smart Matching</div>
-            </div>
-            <div className="text-slate-400">
-              <div className="text-2xl mb-1">🏆</div>
-              <div className="text-xs">Earn XP & Badges</div>
-            </div>
-            <div className="text-slate-400">
-              <div className="text-2xl mb-1">🚀</div>
-              <div className="text-xs">Career Growth</div>
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
       </div>
     );
   }
+
+  if (!user && !showAuth) {
+    return <LandingPage onGetStarted={() => setShowAuth(true)} />;
+  }
+
+  if (!user && showAuth) {
+    return <Auth onBack={() => setShowAuth(false)} />;
+  }
+
+  // Use Firestore data or fallback to local state
+  const xp = userData?.xp || 0;
+  const level = userData?.level || 0;
+  const streak = userData?.streak || 0;
+  const saved = userData?.savedJobs || [];
+  const applied = userData?.appliedJobs || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 text-white">
@@ -119,10 +121,10 @@ export default function App() {
             </div>
             <div>
               <span className="text-lg font-bold">WorkPlay</span>
-              <div className="text-xs text-slate-400">Hi, {user}!</div>
+              <div className="text-xs text-slate-400">Hi, {user?.displayName || user?.email?.split('@')[0]}!</div>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             {["swipe", "saved", "challenges", "profile"].map((p) => (
               <button 
                 key={p}
@@ -134,6 +136,12 @@ export default function App() {
                 {p === "swipe" ? "🏠 Home" : p === "saved" ? "💾 Saved" : p === "challenges" ? "🏆 Tasks" : "👤 Profile"}
               </button>
             ))}
+            <button
+              onClick={handleSignOut}
+              className="ml-2 px-3 py-2 text-slate-400 hover:text-white text-sm"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       </nav>
@@ -149,7 +157,7 @@ export default function App() {
               <div className="w-full bg-slate-800 rounded-full h-3">
                 <div 
                   className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all"
-                  style={{ width: `${(xp % 100)}%` }}
+                  style={{ width: `${level > 0 ? (xp % 100) : (xp % 100)}%` }}
                 />
               </div>
             </div>
@@ -189,39 +197,39 @@ export default function App() {
             
             <h1 className="text-xl font-bold text-center mb-6">
               {search ? `Search: "${search}"` : "Discover Jobs"}
-              {loading && <span className="text-sm text-slate-400 block">Loading...</span>}
+              {jobsLoading && <span className="text-sm text-slate-400 block">Loading...</span>}
             </h1>
             
-            {loading ? (
+            {jobsLoading ? (
               <div className="text-center py-16">
                 <div className="text-4xl mb-4">⏳</div>
                 <p className="text-slate-400">Loading fresh jobs...</p>
               </div>
-            ) : currentIndex < filteredJobs.length ? (
+            ) : currentIndex < jobs.length ? (
               <div className="bg-white rounded-2xl p-6 shadow-xl text-black max-w-sm mx-auto relative">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-purple-100 to-transparent rounded-full -translate-y-12 translate-x-12" />
                 
                 <div className="flex items-start gap-4 relative z-10">
                   <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xl shadow-md">
-                    {filteredJobs[currentIndex].logo}
+                    {jobs[currentIndex].logo}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{filteredJobs[currentIndex].title}</h3>
-                    <div className="text-sm text-gray-600 mt-1">{filteredJobs[currentIndex].company}</div>
+                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{jobs[currentIndex].title}</h3>
+                    <div className="text-sm text-gray-600 mt-1">{jobs[currentIndex].company}</div>
                     <div className="flex items-center gap-1 mt-2">
-                      <span className="text-xs text-gray-500">📍 {filteredJobs[currentIndex].location}</span>
+                      <span className="text-xs text-gray-500">📍 {jobs[currentIndex].location}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full bg-green-50 border border-green-200">
-                  <span className="text-sm font-semibold text-green-700">{filteredJobs[currentIndex].salary}</span>
+                  <span className="text-sm font-semibold text-green-700">{jobs[currentIndex].salary}</span>
                 </div>
 
-                <p className="mt-4 text-gray-700 leading-relaxed text-sm">{filteredJobs[currentIndex].desc}</p>
+                <p className="mt-4 text-gray-700 leading-relaxed text-sm">{jobs[currentIndex].desc}</p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {filteredJobs[currentIndex].tags?.map((tag) => (
+                  {jobs[currentIndex].tags?.map((tag) => (
                     <span 
                       key={tag} 
                       className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded-full border border-purple-200"
@@ -233,21 +241,13 @@ export default function App() {
 
                 <div className="flex gap-4 mt-6">
                   <button 
-                    onClick={() => {
-                      setCurrentIndex(prev => prev + 1);
-                      setXp(prev => prev + 5);
-                    }}
+                    onClick={() => handleSwipe("left")}
                     className="flex-1 py-3 bg-red-500 text-white rounded-lg font-medium"
                   >
                     Skip
                   </button>
                   <button 
-                    onClick={() => {
-                      setSaved(prev => [...prev, filteredJobs[currentIndex]]);
-                      setCurrentIndex(prev => prev + 1);
-                      setXp(prev => prev + 20);
-                      setStreak(prev => prev + 1);
-                    }}
+                    onClick={() => handleSwipe("right")}
                     className="flex-1 py-3 bg-green-500 text-white rounded-lg font-medium"
                   >
                     Save
@@ -301,8 +301,7 @@ export default function App() {
                               if (job.apply_url && job.apply_url !== "#") {
                                 window.open(job.apply_url, '_blank');
                               }
-                              setApplied(prev => [...prev, job.id]);
-                              setXp(prev => prev + 30);
+                              applyToJobAction(job.id);
                             }}
                             disabled={applied.includes(job.id)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -314,7 +313,7 @@ export default function App() {
                             {applied.includes(job.id) ? "✓ Applied" : "Apply Now"}
                           </button>
                           <button 
-                            onClick={() => setSaved(prev => prev.filter(j => j.id !== job.id))}
+                            onClick={() => removeJob(job.id)}
                             className="px-4 py-2 bg-red-600/20 text-red-400 rounded-lg text-sm hover:bg-red-600/30"
                           >
                             Remove
@@ -357,7 +356,7 @@ export default function App() {
                         </div>
                       </div>
                       <button 
-                        onClick={() => setXp(prev => prev + challenge.xp)}
+                        onClick={() => addXP(challenge.xp, 'challenge_completed')}
                         className="w-full mt-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-colors"
                       >
                         Mark Complete
@@ -372,10 +371,14 @@ export default function App() {
         
         {page === "profile" && (
           <div className="max-w-md mx-auto text-center">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl">
-              👤
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl overflow-hidden">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="Profile" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                "👤"
+              )}
             </div>
-            <h1 className="text-2xl font-bold mb-2">{user}</h1>
+            <h1 className="text-2xl font-bold mb-2">{user?.displayName || user?.email?.split('@')[0]}</h1>
             <p className="text-slate-400 mb-8">Level {level} • {xp} XP</p>
             
             <div className="grid grid-cols-2 gap-4 mb-8">
