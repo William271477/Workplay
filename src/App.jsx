@@ -1,147 +1,46 @@
-import React, { useState } from "react";
-import { useXPStore } from "./store/xpStore";
-import { jobs } from "./data/jobs";
-import TinderCard from "react-tinder-card";
-import confetti from "canvas-confetti";
-
-function JobCard({ job }) {
-  return (
-    <div className="bg-white rounded-2xl p-6 shadow-xl max-w-sm mx-auto border relative overflow-hidden select-none">
-      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-purple-100 to-transparent rounded-full -translate-y-12 translate-x-12" />
-      
-      <div className="flex items-start gap-4 relative z-10">
-        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xl shadow-md">
-          {job.logo}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-bold text-gray-900 leading-tight">{job.title}</h3>
-          <div className="text-sm text-gray-600 mt-1">{job.company}</div>
-          <div className="flex items-center gap-1 mt-2">
-            <span className="text-xs text-gray-500">📍 {job.location}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full bg-green-50 border border-green-200">
-        <span className="text-sm font-semibold text-green-700">{job.salary}</span>
-      </div>
-
-      <p className="mt-4 text-gray-700 leading-relaxed text-sm">{job.desc}</p>
-
-      {job.tags && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {job.tags.map((tag) => (
-            <span 
-              key={tag} 
-              className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded-full border border-purple-200"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-6 flex justify-between items-center text-xs text-gray-400">
-        <div className="flex items-center gap-1">
-          <span>←</span>
-          <span>Skip</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span>Save</span>
-          <span>→</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SwipeDeck({ jobs, onSwipe }) {
-  const [lastDirection, setLastDirection] = useState();
-
-  const swiped = (direction, job) => {
-    setLastDirection(direction);
-    if (direction === "right") {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-    }
-    onSwipe?.(direction, job);
-  };
-
-  if (!jobs || jobs.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <div className="text-4xl mb-4">🎯</div>
-        <p className="text-slate-400">No more jobs to show</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative h-96 flex justify-center items-center">
-      {jobs.slice(0, 3).map((job, index) => (
-        <TinderCard
-          key={job.id}
-          onSwipe={(dir) => swiped(dir, job)}
-          preventSwipe={["up", "down"]}
-          className="absolute"
-        >
-          <div 
-            className="transform transition-transform"
-            style={{ 
-              zIndex: jobs.length - index,
-              transform: `scale(${1 - index * 0.05}) translateY(${index * 8}px)`
-            }}
-          >
-            <JobCard job={job} />
-          </div>
-        </TinderCard>
-      ))}
-      
-      {lastDirection && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
-          <div className={`px-4 py-2 rounded-full text-white font-bold ${
-            lastDirection === "right" ? "bg-green-500" : "bg-red-500"
-          }`}>
-            {lastDirection === "right" ? "SAVED!" : "SKIPPED"}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+import React, { useState, useEffect } from "react";
+import { fetchJobs } from "./services/jobApi";
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState("swipe");
-  const [currentJobIndex, setCurrentJobIndex] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  
-  const { xp, streak, saved, appliedJobs, addXP, saveJob, applyToJob, removeSaved, incrementStreak } = useXPStore();
-  
+  const [xp, setXp] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [saved, setSaved] = useState([]);
+  const [applied, setApplied] = useState([]);
+  const [search, setSearch] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(false);
+
   const level = Math.floor(xp / 100);
 
-  const filteredJobs = searchQuery 
-    ? jobs.filter(job => 
-        job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : jobs;
+  // Load jobs on mount and when search changes
+  useEffect(() => {
+    loadJobs();
+  }, []);
 
-  const handleSwipe = (direction, job) => {
-    if (direction === "right" && job) {
-      addXP(20);
-      saveJob(job);
-      incrementStreak();
-    } else if (direction === "left") {
-      addXP(5);
+  const loadJobs = async (query = "developer", location = "South Africa") => {
+    setLoading(true);
+    try {
+      const jobData = await fetchJobs(query, location);
+      setJobs(jobData);
+      setCurrentIndex(0);
+    } catch (error) {
+      console.error('Failed to load jobs:', error);
+    } finally {
+      setLoading(false);
     }
-    setCurrentJobIndex(prev => prev + 1);
   };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (search.trim()) {
+      loadJobs(search, "South Africa");
+    }
+  };
+
+  const filteredJobs = jobs;
 
   if (!user) {
     return (
@@ -268,32 +167,106 @@ export default function App() {
               </div>
             </div>
 
-            <div className="relative mb-6">
+            <form onSubmit={handleSearch} className="relative mb-6">
               <input
                 type="text"
-                placeholder="Search jobs by title, company, or location..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search jobs (e.g. React Developer, Data Scientist)..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="w-full px-4 py-3 pl-12 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <button type="submit" className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white">
                 🔍
-              </div>
-            </div>
+              </button>
+              <button 
+                type="button"
+                onClick={() => loadJobs()}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700"
+              >
+                Refresh
+              </button>
+            </form>
             
             <h1 className="text-xl font-bold text-center mb-6">
-              {searchQuery ? `Search: "${searchQuery}"` : "Discover Jobs"}
+              {search ? `Search: "${search}"` : "Discover Jobs"}
+              {loading && <span className="text-sm text-slate-400 block">Loading...</span>}
             </h1>
             
-            {currentJobIndex < filteredJobs.length ? (
-              <SwipeDeck jobs={filteredJobs.slice(currentJobIndex)} onSwipe={handleSwipe} />
+            {loading ? (
+              <div className="text-center py-16">
+                <div className="text-4xl mb-4">⏳</div>
+                <p className="text-slate-400">Loading fresh jobs...</p>
+              </div>
+            ) : currentIndex < filteredJobs.length ? (
+              <div className="bg-white rounded-2xl p-6 shadow-xl text-black max-w-sm mx-auto relative">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-purple-100 to-transparent rounded-full -translate-y-12 translate-x-12" />
+                
+                <div className="flex items-start gap-4 relative z-10">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xl shadow-md">
+                    {filteredJobs[currentIndex].logo}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{filteredJobs[currentIndex].title}</h3>
+                    <div className="text-sm text-gray-600 mt-1">{filteredJobs[currentIndex].company}</div>
+                    <div className="flex items-center gap-1 mt-2">
+                      <span className="text-xs text-gray-500">📍 {filteredJobs[currentIndex].location}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full bg-green-50 border border-green-200">
+                  <span className="text-sm font-semibold text-green-700">{filteredJobs[currentIndex].salary}</span>
+                </div>
+
+                <p className="mt-4 text-gray-700 leading-relaxed text-sm">{filteredJobs[currentIndex].desc}</p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {filteredJobs[currentIndex].tags?.map((tag) => (
+                    <span 
+                      key={tag} 
+                      className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded-full border border-purple-200"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex gap-4 mt-6">
+                  <button 
+                    onClick={() => {
+                      setCurrentIndex(prev => prev + 1);
+                      setXp(prev => prev + 5);
+                    }}
+                    className="flex-1 py-3 bg-red-500 text-white rounded-lg font-medium"
+                  >
+                    Skip
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setSaved(prev => [...prev, filteredJobs[currentIndex]]);
+                      setCurrentIndex(prev => prev + 1);
+                      setXp(prev => prev + 20);
+                      setStreak(prev => prev + 1);
+                    }}
+                    className="flex-1 py-3 bg-green-500 text-white rounded-lg font-medium"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="text-center py-16">
                 <div className="text-4xl mb-4">🎉</div>
                 <h3 className="text-lg font-bold mb-2">All caught up!</h3>
-                <p className="text-slate-400">
-                  {searchQuery ? "Try a different search" : "Check back later for more opportunities"}
+                <p className="text-slate-400 mb-4">
+                  {search ? "Try a different search" : "Check back later for more opportunities"}
                 </p>
+                <button 
+                  onClick={() => loadJobs()}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Load More Jobs
+                </button>
               </div>
             )}
           </div>
@@ -325,20 +298,23 @@ export default function App() {
                         <div className="flex gap-2 mt-3">
                           <button 
                             onClick={() => {
-                              applyToJob(job.id);
-                              addXP(30);
+                              if (job.apply_url && job.apply_url !== "#") {
+                                window.open(job.apply_url, '_blank');
+                              }
+                              setApplied(prev => [...prev, job.id]);
+                              setXp(prev => prev + 30);
                             }}
-                            disabled={appliedJobs.includes(job.id)}
+                            disabled={applied.includes(job.id)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                              appliedJobs.includes(job.id)
+                              applied.includes(job.id)
                                 ? "bg-green-600/20 text-green-400 cursor-not-allowed"
                                 : "bg-blue-600 hover:bg-blue-700 text-white"
                             }`}
                           >
-                            {appliedJobs.includes(job.id) ? "✓ Applied" : "Apply Now"}
+                            {applied.includes(job.id) ? "✓ Applied" : "Apply Now"}
                           </button>
                           <button 
-                            onClick={() => removeSaved(job.id)}
+                            onClick={() => setSaved(prev => prev.filter(j => j.id !== job.id))}
                             className="px-4 py-2 bg-red-600/20 text-red-400 rounded-lg text-sm hover:bg-red-600/30"
                           >
                             Remove
@@ -381,7 +357,7 @@ export default function App() {
                         </div>
                       </div>
                       <button 
-                        onClick={() => addXP(challenge.xp)}
+                        onClick={() => setXp(prev => prev + challenge.xp)}
                         className="w-full mt-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-colors"
                       >
                         Mark Complete
@@ -420,7 +396,7 @@ export default function App() {
               </div>
               <div className="bg-slate-800/50 rounded-lg p-4">
                 <div className="text-2xl mb-2">📄</div>
-                <div className="text-xl font-bold text-blue-400">{appliedJobs.length}</div>
+                <div className="text-xl font-bold text-blue-400">{applied.length}</div>
                 <div className="text-xs text-slate-400">Applied</div>
               </div>
             </div>
@@ -432,7 +408,7 @@ export default function App() {
                   { icon: "🎯", name: "First Save", desc: "Saved your first job", unlocked: saved.length >= 1 },
                   { icon: "🔥", name: "On Fire", desc: "3-day streak", unlocked: streak >= 3 },
                   { icon: "⭐", name: "Level Up", desc: "Reach level 1", unlocked: level >= 1 },
-                  { icon: "📄", name: "Job Hunter", desc: "Applied to first job", unlocked: appliedJobs.length >= 1 }
+                  { icon: "📄", name: "Job Hunter", desc: "Applied to first job", unlocked: applied.length >= 1 }
                 ].map((achievement, i) => (
                   <div key={i} className={`p-3 rounded-lg border transition-all ${
                     achievement.unlocked 
