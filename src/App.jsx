@@ -3,7 +3,6 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { fetchJobs } from "./services/jobApi";
 import { useFirestore } from "./hooks/useFirestore";
-import { requestNotificationPermission, onMessageListener } from "./services/notifications";
 import LandingPage from "./components/LandingPage";
 import Auth from "./components/Auth";
 
@@ -25,24 +24,9 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setAuthLoading(false);
-      
-      // Request notification permission when user logs in
-      if (user) {
-        requestNotificationPermission(user.uid);
-      }
     });
 
     return () => unsubscribe();
-  }, []);
-
-  // Listen for push notifications
-  useEffect(() => {
-    const unsubscribe = onMessageListener();
-    return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    };
   }, []);
 
   // Load jobs when user is authenticated
@@ -75,6 +59,8 @@ export default function App() {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      setPage("swipe");
+      setCurrentIndex(0);
     } catch (error) {
       console.error('Sign out error:', error);
     }
@@ -88,7 +74,7 @@ export default function App() {
     setCurrentIndex(prev => prev + 1);
   };
 
-  if (authLoading || (user && firestoreLoading)) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-white text-xl">Loading...</div>
@@ -104,7 +90,15 @@ export default function App() {
     return <Auth onBack={() => setShowAuth(false)} />;
   }
 
-  // Use Firestore data or fallback to local state
+  if (firestoreLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Setting up your profile...</div>
+      </div>
+    );
+  }
+
+  // Use Firestore data with fallbacks
   const xp = userData?.xp || 0;
   const level = userData?.level || 0;
   const streak = userData?.streak || 0;
@@ -121,7 +115,10 @@ export default function App() {
             </div>
             <div>
               <span className="text-lg font-bold">WorkPlay</span>
-              <div className="text-xs text-slate-400">Hi, {user?.displayName || user?.email?.split('@')[0]}!</div>
+              <div className="text-xs text-slate-400">
+                Hi, {userData?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Demo User'}!
+                {user?.isAnonymous && <span className="ml-1 text-yellow-400">(Demo)</span>}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -157,7 +154,7 @@ export default function App() {
               <div className="w-full bg-slate-800 rounded-full h-3">
                 <div 
                   className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all"
-                  style={{ width: `${level > 0 ? (xp % 100) : (xp % 100)}%` }}
+                  style={{ width: `${(xp % 100)}%` }}
                 />
               </div>
             </div>
@@ -242,13 +239,13 @@ export default function App() {
                 <div className="flex gap-4 mt-6">
                   <button 
                     onClick={() => handleSwipe("left")}
-                    className="flex-1 py-3 bg-red-500 text-white rounded-lg font-medium"
+                    className="flex-1 py-3 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
                   >
                     Skip
                   </button>
                   <button 
                     onClick={() => handleSwipe("right")}
-                    className="flex-1 py-3 bg-green-500 text-white rounded-lg font-medium"
+                    className="flex-1 py-3 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors"
                   >
                     Save
                   </button>
@@ -378,8 +375,13 @@ export default function App() {
                 "👤"
               )}
             </div>
-            <h1 className="text-2xl font-bold mb-2">{user?.displayName || user?.email?.split('@')[0]}</h1>
-            <p className="text-slate-400 mb-8">Level {level} • {xp} XP</p>
+            <h1 className="text-2xl font-bold mb-2">
+              {userData?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Demo User'}
+            </h1>
+            <p className="text-slate-400 mb-8">
+              Level {level} • {xp} XP
+              {user?.isAnonymous && <span className="block text-yellow-400 text-sm">Demo Account</span>}
+            </p>
             
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-slate-800/50 rounded-lg p-4">

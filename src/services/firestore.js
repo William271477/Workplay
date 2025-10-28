@@ -19,7 +19,7 @@ export const createUserProfile = async (userId, userData) => {
         salaryRange: { min: 0, max: 100000 },
         skills: []
       }
-    });
+    }, { merge: true });
   } catch (error) {
     console.error('Error creating user profile:', error);
   }
@@ -40,16 +40,19 @@ export const getUserData = async (userId) => {
 // Save job to Firestore
 export const saveJobToFirestore = async (userId, job) => {
   try {
-    await updateDoc(doc(db, 'users', userId), {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
       savedJobs: arrayUnion(job)
     });
     
     // Analytics event
-    logEvent(analytics, 'job_saved', {
-      job_id: job.id,
-      job_title: job.title,
-      company: job.company
-    });
+    if (analytics) {
+      logEvent(analytics, 'job_saved', {
+        job_id: job.id,
+        job_title: job.title,
+        company: job.company
+      });
+    }
   } catch (error) {
     console.error('Error saving job:', error);
   }
@@ -59,10 +62,13 @@ export const saveJobToFirestore = async (userId, job) => {
 export const removeJobFromFirestore = async (userId, jobId) => {
   try {
     const userData = await getUserData(userId);
+    if (!userData || !userData.savedJobs) return;
+    
     const jobToRemove = userData.savedJobs.find(job => job.id === jobId);
     
     if (jobToRemove) {
-      await updateDoc(doc(db, 'users', userId), {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
         savedJobs: arrayRemove(jobToRemove)
       });
     }
@@ -74,14 +80,17 @@ export const removeJobFromFirestore = async (userId, jobId) => {
 // Apply to job
 export const applyToJob = async (userId, jobId) => {
   try {
-    await updateDoc(doc(db, 'users', userId), {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
       appliedJobs: arrayUnion(jobId)
     });
     
     // Analytics event
-    logEvent(analytics, 'job_applied', {
-      job_id: jobId
-    });
+    if (analytics) {
+      logEvent(analytics, 'job_applied', {
+        job_id: jobId
+      });
+    }
   } catch (error) {
     console.error('Error applying to job:', error);
   }
@@ -91,47 +100,45 @@ export const applyToJob = async (userId, jobId) => {
 export const updateUserXP = async (userId, xpGain, action) => {
   try {
     const userData = await getUserData(userId);
-    const newXP = userData.xp + xpGain;
-    const newLevel = Math.floor(newXP / 100);
+    if (!userData) return;
     
-    await updateDoc(doc(db, 'users', userId), {
+    const newXP = (userData.xp || 0) + xpGain;
+    const newLevel = Math.floor(newXP / 100);
+    const newStreak = action === 'job_saved' ? (userData.streak || 0) + 1 : (userData.streak || 0);
+    
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
       xp: newXP,
-      level: newLevel
+      level: newLevel,
+      streak: newStreak
     });
     
     // Analytics event
-    logEvent(analytics, 'xp_gained', {
-      action: action,
-      xp_gained: xpGain,
-      new_total: newXP,
-      level: newLevel
-    });
+    if (analytics) {
+      logEvent(analytics, 'xp_gained', {
+        action: action,
+        xp_gained: xpGain,
+        new_total: newXP,
+        level: newLevel
+      });
+    }
   } catch (error) {
     console.error('Error updating XP:', error);
-  }
-};
-
-// Update user preferences
-export const updateUserPreferences = async (userId, preferences) => {
-  try {
-    await updateDoc(doc(db, 'users', userId), {
-      preferences: preferences
-    });
-  } catch (error) {
-    console.error('Error updating preferences:', error);
   }
 };
 
 // Track job swipe
 export const trackJobSwipe = async (job, direction) => {
   try {
-    logEvent(analytics, 'job_swiped', {
-      job_id: job.id,
-      job_title: job.title,
-      company: job.company,
-      direction: direction,
-      salary: job.salary
-    });
+    if (analytics) {
+      logEvent(analytics, 'job_swiped', {
+        job_id: job.id,
+        job_title: job.title,
+        company: job.company,
+        direction: direction,
+        salary: job.salary
+      });
+    }
   } catch (error) {
     console.error('Error tracking swipe:', error);
   }
@@ -139,11 +146,16 @@ export const trackJobSwipe = async (job, direction) => {
 
 // Listen to user data changes
 export const subscribeToUserData = (userId, callback) => {
-  const unsubscribe = onSnapshot(doc(db, 'users', userId), (doc) => {
-    if (doc.exists()) {
-      callback(doc.data());
-    }
-  });
-  
-  return unsubscribe;
+  try {
+    const unsubscribe = onSnapshot(doc(db, 'users', userId), (doc) => {
+      if (doc.exists()) {
+        callback(doc.data());
+      }
+    });
+    
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error subscribing to user data:', error);
+    return () => {};
+  }
 };
