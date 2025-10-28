@@ -20,6 +20,7 @@ export default function App() {
   const [streak, setStreak] = useState(0);
   const [saved, setSaved] = useState([]);
   const [applied, setApplied] = useState([]);
+  const [completedChallenges, setCompletedChallenges] = useState([]);
 
   const level = Math.floor(xp / 100);
 
@@ -92,6 +93,7 @@ export default function App() {
       setStreak(0);
       setSaved([]);
       setApplied([]);
+      setCompletedChallenges([]);
     } catch (error) {
       console.error('Sign out error:', error);
     }
@@ -120,8 +122,11 @@ export default function App() {
     setSaved(prev => prev.filter(job => job.id !== jobId));
   };
 
-  const handleAddXP = (amount) => {
-    setXp(prev => prev + amount);
+  const handleCompleteChallenge = (challengeIndex, xpAmount) => {
+    if (!completedChallenges.includes(challengeIndex)) {
+      setCompletedChallenges(prev => [...prev, challengeIndex]);
+      setXp(prev => prev + xpAmount);
+    }
   };
 
   if (authLoading) {
@@ -372,31 +377,43 @@ export default function App() {
                 { icon: "🔍", title: "Research SA companies", desc: "Learn about 5 potential employers", xp: 40, time: "45 min" },
                 { icon: "💼", title: "Build LinkedIn profile", desc: "Create professional online presence", xp: 30, time: "20 min" },
                 { icon: "🎓", title: "Learn new skill", desc: "Complete online course or tutorial", xp: 50, time: "2 hours" }
-              ].map((challenge, i) => (
-                <div key={i} className="bg-slate-800/30 rounded-lg p-6 border border-slate-700/50">
-                  <div className="flex items-start gap-4">
-                    <div className="text-3xl">{challenge.icon}</div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h3 className="text-lg font-semibold">{challenge.title}</h3>
-                          <p className="text-slate-400 text-sm">{challenge.desc}</p>
+              ].map((challenge, i) => {
+                const isCompleted = completedChallenges.includes(i);
+                return (
+                  <div key={i} className={`rounded-lg p-6 border transition-all ${
+                    isCompleted 
+                      ? 'bg-green-800/20 border-green-500/50' 
+                      : 'bg-slate-800/30 border-slate-700/50'
+                  }`}>
+                    <div className="flex items-start gap-4">
+                      <div className="text-3xl">{challenge.icon}</div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="text-lg font-semibold">{challenge.title}</h3>
+                            <p className="text-slate-400 text-sm">{challenge.desc}</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-purple-400">+{challenge.xp} XP</div>
+                            <div className="text-xs text-slate-500">{challenge.time}</div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-purple-400">+{challenge.xp} XP</div>
-                          <div className="text-xs text-slate-500">{challenge.time}</div>
-                        </div>
+                        <button 
+                          onClick={() => handleCompleteChallenge(i, challenge.xp)}
+                          disabled={isCompleted}
+                          className={`w-full mt-3 py-2 rounded-lg font-medium transition-colors ${
+                            isCompleted
+                              ? 'bg-green-600/20 text-green-400 cursor-not-allowed'
+                              : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
+                          }`}
+                        >
+                          {isCompleted ? '✓ Completed' : 'Mark Complete'}
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => handleAddXP(challenge.xp)}
-                        className="w-full mt-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-colors"
-                      >
-                        Mark Complete
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -448,7 +465,8 @@ export default function App() {
                   { icon: "🎯", name: "First Save", desc: "Saved your first job", unlocked: saved.length >= 1 },
                   { icon: "🔥", name: "On Fire", desc: "3-day streak", unlocked: streak >= 3 },
                   { icon: "⭐", name: "Level Up", desc: "Reach level 1", unlocked: level >= 1 },
-                  { icon: "📄", name: "Job Hunter", desc: "Applied to first job", unlocked: applied.length >= 1 }
+                  { icon: "📄", name: "Job Hunter", desc: "Applied to first job", unlocked: applied.length >= 1 },
+                  { icon: "🏆", name: "Task Master", desc: "Complete 3 challenges", unlocked: completedChallenges.length >= 3 }
                 ].map((achievement, i) => (
                   <div key={i} className={`p-3 rounded-lg border transition-all ${
                     achievement.unlocked 
