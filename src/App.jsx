@@ -4,6 +4,11 @@ import { auth } from './firebase';
 import { fetchJobs } from "./services/jobApi";
 import LandingPage from "./components/LandingPage";
 import Auth from "./components/Auth";
+import JobFilters from "./components/JobFilters";
+import DailyRewards from "./components/DailyRewards";
+import ThemeToggle from "./components/ThemeToggle";
+import ShareJob from "./components/ShareJob";
+import QuickStats from "./components/QuickStats";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -13,7 +18,9 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [jobs, setJobs] = useState([]);
+  const [filteredJobs, setFilteredJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(false);
+  const [shareMessage, setShareMessage] = useState("");
   
   // Local state for demo users (no Firestore)
   const [xp, setXp] = useState(0);
@@ -55,6 +62,11 @@ export default function App() {
     }
   }, [user]);
 
+  // Set filtered jobs initially
+  useEffect(() => {
+    setFilteredJobs(jobs);
+  }, [jobs]);
+
   const loadJobs = async (query = "developer", location = "South Africa") => {
     setJobsLoading(true);
     try {
@@ -73,6 +85,39 @@ export default function App() {
     if (search.trim()) {
       loadJobs(search, "South Africa");
     }
+  };
+
+  const handleFilter = (filters) => {
+    let filtered = [...jobs];
+
+    // Location filter
+    if (filters.location !== 'all') {
+      filtered = filtered.filter(job => 
+        job.location.toLowerCase().includes(filters.location.toLowerCase())
+      );
+    }
+
+    // Salary filter
+    if (filters.salary !== 'all') {
+      const [min, max] = filters.salary.split('-').map(s => parseInt(s) || 999);
+      filtered = filtered.filter(job => {
+        const salary = job.salary.match(/\d+/g);
+        if (!salary) return true;
+        const jobSalary = parseInt(salary[0]);
+        return max ? (jobSalary >= min && jobSalary <= max) : jobSalary >= min;
+      });
+    }
+
+    // Type filter
+    if (filters.type !== 'all') {
+      filtered = filtered.filter(job => 
+        job.tags?.some(tag => tag.toLowerCase().includes(filters.type.toLowerCase())) ||
+        job.title.toLowerCase().includes(filters.type.toLowerCase())
+      );
+    }
+
+    setFilteredJobs(filtered);
+    setCurrentIndex(0);
   };
 
   const handleSignOut = async () => {
@@ -100,7 +145,7 @@ export default function App() {
   };
 
   const handleSwipe = (direction) => {
-    const currentJob = jobs[currentIndex];
+    const currentJob = filteredJobs[currentIndex];
     if (currentJob && direction === "right") {
       setSaved(prev => [currentJob, ...prev]);
       setXp(prev => prev + 20);
@@ -127,6 +172,15 @@ export default function App() {
       setCompletedChallenges(prev => [...prev, challengeIndex]);
       setXp(prev => prev + xpAmount);
     }
+  };
+
+  const handleDailyReward = (rewardXP) => {
+    setXp(prev => prev + rewardXP);
+  };
+
+  const handleShare = (message) => {
+    setShareMessage(message);
+    setTimeout(() => setShareMessage(""), 3000);
   };
 
   if (authLoading) {
@@ -162,6 +216,7 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             {["swipe", "saved", "challenges", "profile"].map((p) => (
               <button 
                 key={p}
@@ -183,9 +238,18 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Share Message Toast */}
+      {shareMessage && (
+        <div className="fixed top-20 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          {shareMessage}
+        </div>
+      )}
+
       <main className="p-4 md:p-8">
         {page === "swipe" && (
           <div className="max-w-md mx-auto">
+            <DailyRewards onClaimReward={handleDailyReward} />
+            
             <div className="mb-6">
               <div className="flex justify-between text-sm mb-2">
                 <span>Level {level}</span>
@@ -199,18 +263,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex gap-4 mb-6 text-center">
-              <div className="bg-slate-800/50 rounded-lg p-3 flex-1">
-                <div className="text-xl">🔥</div>
-                <div className="text-xs text-slate-400">Streak</div>
-                <div className="font-bold text-orange-400">{streak}</div>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-3 flex-1">
-                <div className="text-xl">💾</div>
-                <div className="text-xs text-slate-400">Saved</div>
-                <div className="font-bold text-green-400">{saved.length}</div>
-              </div>
-            </div>
+            <QuickStats xp={xp} saved={saved} applied={applied} streak={streak} />
 
             <form onSubmit={handleSearch} className="relative mb-6">
               <input
@@ -231,6 +284,8 @@ export default function App() {
                 Refresh
               </button>
             </form>
+
+            <JobFilters onFilter={handleFilter} jobCount={filteredJobs.length} />
             
             <h1 className="text-xl font-bold text-center mb-6">
               {search ? `Search: "${search}"` : "Discover Jobs"}
@@ -242,31 +297,34 @@ export default function App() {
                 <div className="text-4xl mb-4">⏳</div>
                 <p className="text-slate-400">Loading fresh jobs...</p>
               </div>
-            ) : currentIndex < jobs.length ? (
+            ) : currentIndex < filteredJobs.length ? (
               <div className="bg-white rounded-2xl p-6 shadow-xl text-black max-w-sm mx-auto relative">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-purple-100 to-transparent rounded-full -translate-y-12 translate-x-12" />
                 
                 <div className="flex items-start gap-4 relative z-10">
                   <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xl shadow-md">
-                    {jobs[currentIndex].logo}
+                    {filteredJobs[currentIndex].logo}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{jobs[currentIndex].title}</h3>
-                    <div className="text-sm text-gray-600 mt-1">{jobs[currentIndex].company}</div>
+                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{filteredJobs[currentIndex].title}</h3>
+                    <div className="text-sm text-gray-600 mt-1">{filteredJobs[currentIndex].company}</div>
                     <div className="flex items-center gap-1 mt-2">
-                      <span className="text-xs text-gray-500">📍 {jobs[currentIndex].location}</span>
+                      <span className="text-xs text-gray-500">📍 {filteredJobs[currentIndex].location}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full bg-green-50 border border-green-200">
-                  <span className="text-sm font-semibold text-green-700">{jobs[currentIndex].salary}</span>
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 border border-green-200">
+                    <span className="text-sm font-semibold text-green-700">{filteredJobs[currentIndex].salary}</span>
+                  </div>
+                  <ShareJob job={filteredJobs[currentIndex]} onShare={handleShare} />
                 </div>
 
-                <p className="mt-4 text-gray-700 leading-relaxed text-sm">{jobs[currentIndex].desc}</p>
+                <p className="mt-4 text-gray-700 leading-relaxed text-sm">{filteredJobs[currentIndex].desc}</p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {jobs[currentIndex].tags?.map((tag) => (
+                  {filteredJobs[currentIndex].tags?.map((tag) => (
                     <span 
                       key={tag} 
                       className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded-full border border-purple-200"
@@ -328,9 +386,14 @@ export default function App() {
                         {job.logo}
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold">{job.title}</h3>
-                        <p className="text-slate-400 text-sm">{job.company} • {job.location}</p>
-                        <p className="text-green-400 font-semibold text-sm">{job.salary}</p>
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="font-semibold">{job.title}</h3>
+                            <p className="text-slate-400 text-sm">{job.company} • {job.location}</p>
+                            <p className="text-green-400 font-semibold text-sm">{job.salary}</p>
+                          </div>
+                          <ShareJob job={job} onShare={handleShare} />
+                        </div>
                         <p className="text-slate-300 text-sm mt-2">{job.desc}</p>
                         <div className="flex gap-2 mt-3">
                           <button 
@@ -435,28 +498,7 @@ export default function App() {
               {user?.isAnonymous && <span className="block text-yellow-400 text-sm">Demo Account</span>}
             </p>
             
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-slate-800/50 rounded-lg p-4">
-                <div className="text-2xl mb-2">🏆</div>
-                <div className="text-xl font-bold text-yellow-400">{level}</div>
-                <div className="text-xs text-slate-400">Level</div>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-4">
-                <div className="text-2xl mb-2">🔥</div>
-                <div className="text-xl font-bold text-orange-400">{streak}</div>
-                <div className="text-xs text-slate-400">Streak</div>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-4">
-                <div className="text-2xl mb-2">💾</div>
-                <div className="text-xl font-bold text-green-400">{saved.length}</div>
-                <div className="text-xs text-slate-400">Saved</div>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-4">
-                <div className="text-2xl mb-2">📄</div>
-                <div className="text-xl font-bold text-blue-400">{applied.length}</div>
-                <div className="text-xs text-slate-400">Applied</div>
-              </div>
-            </div>
+            <QuickStats xp={xp} saved={saved} applied={applied} streak={streak} />
             
             <div className="text-left">
               <h2 className="text-lg font-bold mb-4">Achievements</h2>
