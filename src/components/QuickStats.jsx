@@ -11,44 +11,52 @@ export default function QuickStats({ xp, saved, applied, streak }) {
       label: 'Level',
       value: level,
       subtext: `${xpToNext} XP to next`,
-      color: 'text-yellow-400'
+      color: 'text-amber-600',
+      bg: 'bg-amber-50',
+      border: 'border-amber-200'
     },
     {
       icon: '🔥',
       label: 'Streak',
       value: streak,
       subtext: 'days active',
-      color: 'text-orange-400'
+      color: 'text-orange-600',
+      bg: 'bg-orange-50',
+      border: 'border-orange-200'
     },
     {
       icon: '💾',
       label: 'Saved',
       value: saved.length,
       subtext: 'jobs saved',
-      color: 'text-green-400'
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-200'
     },
     {
       icon: '📄',
       label: 'Applied',
       value: applied.length,
       subtext: `${successRate}% rate`,
-      color: 'text-blue-400'
+      color: 'text-blue-600',
+      bg: 'bg-blue-50',
+      border: 'border-blue-200'
     }
   ];
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {stats.map((stat, index) => (
-        <div key={index} className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+        <div key={index} className={`${stat.bg} rounded-xl p-4 border ${stat.border} shadow-sm`}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-2xl">{stat.icon}</span>
             <span className={`text-2xl font-bold ${stat.color}`}>
               {stat.value}
             </span>
           </div>
-          <div className="text-sm text-slate-400">
+          <div className="text-sm text-gray-600">
             <div className="font-medium">{stat.label}</div>
-            <div className="text-xs">{stat.subtext}</div>
+            <div className="text-xs text-gray-500">{stat.subtext}</div>
           </div>
         </div>
       ))}

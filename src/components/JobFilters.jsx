@@ -18,7 +18,7 @@ export default function JobFilters({ onFilter, jobCount }) {
     <div className="mb-6">
       <button
         onClick={() => setShowFilters(!showFilters)}
-        className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 text-white rounded-lg hover:bg-slate-700/50 transition-colors"
+        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
       >
         🎯 Filters ({jobCount} jobs)
         <span className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`}>
@@ -27,15 +27,15 @@ export default function JobFilters({ onFilter, jobCount }) {
       </button>
 
       {showFilters && (
-        <div className="mt-4 p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
+        <div className="mt-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Location Filter */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Location</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
               <select
                 value={filters.location}
                 onChange={(e) => handleFilterChange('location', e.target.value)}
-                className="w-full p-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                className="w-full p-2 bg-white border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Locations</option>
                 <option value="cape town">Cape Town</option>
@@ -47,11 +47,11 @@ export default function JobFilters({ onFilter, jobCount }) {
 
             {/* Salary Filter */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Salary Range</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Salary Range</label>
               <select
                 value={filters.salary}
                 onChange={(e) => handleFilterChange('salary', e.target.value)}
-                className="w-full p-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                className="w-full p-2 bg-white border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Salaries</option>
                 <option value="0-30">R0k - R30k</option>
@@ -63,11 +63,11 @@ export default function JobFilters({ onFilter, jobCount }) {
 
             {/* Job Type Filter */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Job Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
               <select
                 value={filters.type}
                 onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="w-full p-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                className="w-full p-2 bg-white border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Types</option>
                 <option value="tech">Tech</option>
@@ -83,7 +83,7 @@ export default function JobFilters({ onFilter, jobCount }) {
               setFilters({ location: 'all', salary: 'all', type: 'all' });
               onFilter({ location: 'all', salary: 'all', type: 'all' });
             }}
-            className="mt-4 px-4 py-2 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-colors"
+            className="mt-4 px-4 py-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors"
           >
             Clear Filters
           </button>

@@ -80,13 +80,13 @@ export default function DailyRewards({ onClaimReward }) {
   };
 
   return (
-    <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-lg p-4 mb-6">
+    <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 mb-6 shadow-sm">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-bold text-orange-400 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-amber-700 flex items-center gap-2">
             🎁 Daily Reward
           </h3>
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-gray-600">
             {canClaim 
               ? `Claim ${Math.min(50 + (streak * 10), 200)} XP • ${streak} day streak`
               : `Next reward in ${getTimeUntilNext() || '24h'}`
@@ -96,10 +96,10 @@ export default function DailyRewards({ onClaimReward }) {
         <button
           onClick={claimReward}
           disabled={!canClaim}
-          className={`px-6 py-3 rounded-lg font-bold transition-all ${
+          className={`px-6 py-3 rounded-xl font-bold transition-all ${
             canClaim
-              ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:scale-105 shadow-lg'
-              : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:scale-105 shadow-lg'
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
         >
           {canClaim ? 'Claim!' : 'Claimed'}
