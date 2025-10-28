@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInAnonymously } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../firebase';
 
 export default function Auth({ onBack }) {
@@ -43,18 +43,19 @@ export default function Auth({ onBack }) {
     }
   };
 
-  const handleDemoLogin = async () => {
-    setLoading(true);
-    setError('');
+  const handleDemoLogin = () => {
+    // Create a fake demo user object
+    const demoUser = {
+      uid: 'demo-user-' + Date.now(),
+      email: 'demo@workplay.com',
+      displayName: 'Demo User',
+      photoURL: null,
+      isAnonymous: true
+    };
     
-    try {
-      // Sign in anonymously for demo
-      await signInAnonymously(auth);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    // Simulate successful login by calling onBack and letting parent handle demo state
+    localStorage.setItem('workplay_demo_user', JSON.stringify(demoUser));
+    window.location.reload(); // Simple way to trigger auth state change
   };
 
   return (

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { fetchJobs } from "./services/jobApi";
-import { useFirestore } from "./hooks/useFirestore";
 import LandingPage from "./components/LandingPage";
 import Auth from "./components/Auth";
 
@@ -15,12 +14,31 @@ export default function App() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [jobs, setJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(false);
+  
+  // Local state for demo users (no Firestore)
+  const [xp, setXp] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [saved, setSaved] = useState([]);
+  const [applied, setApplied] = useState([]);
 
-  // Firestore integration
-  const { userData, loading: firestoreLoading, saveJob, removeJob, applyToJobAction, addXP, swipeJob } = useFirestore(user);
+  const level = Math.floor(xp / 100);
 
-  // Firebase auth listener
+  // Check for demo user and Firebase auth
   useEffect(() => {
+    // Check for demo user first
+    const demoUser = localStorage.getItem('workplay_demo_user');
+    if (demoUser) {
+      try {
+        const parsedUser = JSON.parse(demoUser);
+        setUser(parsedUser);
+        setAuthLoading(false);
+        return;
+      } catch (error) {
+        localStorage.removeItem('workplay_demo_user');
+      }
+    }
+
+    // Firebase auth listener
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setAuthLoading(false);
@@ -31,10 +49,10 @@ export default function App() {
 
   // Load jobs when user is authenticated
   useEffect(() => {
-    if (user && !firestoreLoading) {
+    if (user) {
       loadJobs();
     }
-  }, [user, firestoreLoading]);
+  }, [user]);
 
   const loadJobs = async (query = "developer", location = "South Africa") => {
     setJobsLoading(true);
@@ -58,20 +76,52 @@ export default function App() {
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      // Clear demo user
+      localStorage.removeItem('workplay_demo_user');
+      
+      // Sign out from Firebase if not demo user
+      if (!user?.isAnonymous) {
+        await signOut(auth);
+      }
+      
+      // Reset state
+      setUser(null);
       setPage("swipe");
       setCurrentIndex(0);
+      setXp(0);
+      setStreak(0);
+      setSaved([]);
+      setApplied([]);
     } catch (error) {
       console.error('Sign out error:', error);
     }
   };
 
-  const handleSwipe = async (direction) => {
+  const handleSwipe = (direction) => {
     const currentJob = jobs[currentIndex];
-    if (currentJob) {
-      await swipeJob(currentJob, direction);
+    if (currentJob && direction === "right") {
+      setSaved(prev => [currentJob, ...prev]);
+      setXp(prev => prev + 20);
+      setStreak(prev => prev + 1);
+    } else if (direction === "left") {
+      setXp(prev => prev + 5);
     }
     setCurrentIndex(prev => prev + 1);
+  };
+
+  const handleApply = (jobId) => {
+    if (!applied.includes(jobId)) {
+      setApplied(prev => [...prev, jobId]);
+      setXp(prev => prev + 30);
+    }
+  };
+
+  const handleRemoveJob = (jobId) => {
+    setSaved(prev => prev.filter(job => job.id !== jobId));
+  };
+
+  const handleAddXP = (amount) => {
+    setXp(prev => prev + amount);
   };
 
   if (authLoading) {
@@ -90,21 +140,6 @@ export default function App() {
     return <Auth onBack={() => setShowAuth(false)} />;
   }
 
-  if (firestoreLoading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl">Setting up your profile...</div>
-      </div>
-    );
-  }
-
-  // Use Firestore data with fallbacks
-  const xp = userData?.xp || 0;
-  const level = userData?.level || 0;
-  const streak = userData?.streak || 0;
-  const saved = userData?.savedJobs || [];
-  const applied = userData?.appliedJobs || [];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 text-white">
       <nav className="bg-slate-800/50 backdrop-blur-lg border-b border-slate-700/50 p-4">
@@ -116,7 +151,7 @@ export default function App() {
             <div>
               <span className="text-lg font-bold">WorkPlay</span>
               <div className="text-xs text-slate-400">
-                Hi, {userData?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Demo User'}!
+                Hi, {user?.displayName || user?.email?.split('@')[0] || 'Demo User'}!
                 {user?.isAnonymous && <span className="ml-1 text-yellow-400">(Demo)</span>}
               </div>
             </div>
@@ -298,7 +333,7 @@ export default function App() {
                               if (job.apply_url && job.apply_url !== "#") {
                                 window.open(job.apply_url, '_blank');
                               }
-                              applyToJobAction(job.id);
+                              handleApply(job.id);
                             }}
                             disabled={applied.includes(job.id)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -310,7 +345,7 @@ export default function App() {
                             {applied.includes(job.id) ? "✓ Applied" : "Apply Now"}
                           </button>
                           <button 
-                            onClick={() => removeJob(job.id)}
+                            onClick={() => handleRemoveJob(job.id)}
                             className="px-4 py-2 bg-red-600/20 text-red-400 rounded-lg text-sm hover:bg-red-600/30"
                           >
                             Remove
@@ -353,7 +388,7 @@ export default function App() {
                         </div>
                       </div>
                       <button 
-                        onClick={() => addXP(challenge.xp, 'challenge_completed')}
+                        onClick={() => handleAddXP(challenge.xp)}
                         className="w-full mt-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-colors"
                       >
                         Mark Complete
@@ -376,7 +411,7 @@ export default function App() {
               )}
             </div>
             <h1 className="text-2xl font-bold mb-2">
-              {userData?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Demo User'}
+              {user?.displayName || user?.email?.split('@')[0] || 'Demo User'}
             </h1>
             <p className="text-slate-400 mb-8">
               Level {level} • {xp} XP
